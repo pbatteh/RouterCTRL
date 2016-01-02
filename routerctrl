@@ -1,13 +1,5 @@
 #!/bin/sh
 
-# Installation
-# - Move this to /etc/init.d/
-# - chmod +x this
-#
-# Starting and stopping
-# - Start: `service routerctrl start` or `/etc/init.d/routerctrl start`
-# - Stop: `service routerctrl stop` or `/etc/init.d/routerctrl stop`
-
 ### BEGIN INIT INFO
 # Provides:          routerCTRL
 # Required-Start:    $syslog $local_fs
@@ -50,7 +42,7 @@ ARG3=$3
 ####
 ## PPPD configuration and modem negotiation:
 
-	PPPDEVC="ttyUSB"	# USB port prefix (for multiple port usage)
+	PPPDEVC="ttyUSB"	# USB port prefix (for multiple ports usage)
 	PPPDIAL="*99#"		# Dial number
 	PPPUSER="wsad"		# Username
 	PPPPASS="1234"		# Username password
@@ -59,7 +51,7 @@ ARG3=$3
 # PIN code, if PIN is enabled use "AT+CPIN=1234",
 # 1234 is a pin code, if disabled use "AT".
 	PPPPIN="AT"	
-	PPPAPN="internet" 	# APN, this variable might not matter - in current setting APN is automatically given by network
+	PPPAPN="internet" 	# APN, this variable might not matter - in default setting APN is automatically given by network
 
 ####
 ## WiFi card configuration
@@ -82,18 +74,6 @@ echo "wpa_pairwise=TKIP" >> /etc/hotspot.conf
 echo "rsn_pairwise=CCMP" >> /etc/hotspot.conf
 
 
-
-## Testing
-# Shared connection commands: Disconnect and Status:
-	#SHAREDOFF="/usr/local/Mobile_Partner/sbin/huawei-ppp-off $PPPDEV"
-	#SHAREDSTAT="/usr/local/Mobile_Partner/sbin/huawei-ppp-status $PPPDEV"
-	#$SHAREDON="pppd linkname $NAME lock crtscts modem $PPPDEV 115200 usepeerdns noauth noipdefault defaultroute connect \"chat -t15 '' '$PPPPIN' '' 'ATH0' 'OK' 'AT\^SYSCFG=14,2,3fffffff,1,1' 'OK' 'AT+CGDCONT=1,IP,$PPPAPN' 'OK' 'ATDT$PPPDIAL' 'CONNECT' ''\""
-
-####linkname HuaweiMobile telephone "$2" $AUTHENTICATION lock crtscts modem $DEVICE
-	#SHAREDON="/usr/local/Mobile_Partner/sbin/huawei-ppp-on $PPPDEV *99# abcd 1234 auth"
-	#SHAREDOFF="/usr/local/Mobile_Partner/sbin/huawei-ppp-off $PPPDEV"
-	#SHAREDSTAT="/usr/local/Mobile_Partner/sbin/huawei-ppp-status $PPPDEV"
-	#SHAREDON="pppd $PPPDEV 921600 lock crtscts modem passive novj defaultroute noipdefault usepeerdns noauth hide-password persist holdoff 10 maxfail 0 debug linkname routerctrl user \"$PPPUSER\" password \"$PPPPASS\" connect $(/usr/sbin/chat -v -t15 -f /etc/ppp/routerctrl-dil)"
 
 
 [ -x "/usr/sbin/hostapd" ] || exit 0
