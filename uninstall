@@ -5,6 +5,6 @@ sudo echo "[*]Uninstalling..."
 sudo rm /usr/sbin/routerctrl 
 sudo rm /etc/hotspot.conf 
 sudo rm /etc/init.d/routerctrl 
-sudo rm /var/www/html/index.php 
-sudo rm /var/www/html/jquery-2.1.4.min.js 
+sudo rm /var/www/index.php 
+sudo rm /var/www/jquery-2.1.4.min.js 
 echo -e "Uninstall complete\n If you want remove packages too, use:\n sudo apt-get remove hostapd apache2 php5 libapache2-mod-php5 "
