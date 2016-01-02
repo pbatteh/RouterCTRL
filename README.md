@@ -9,31 +9,31 @@ Feel free to expand this little tool by tweaking with bash, php and simple C cod
 ################################################################################
 
 Features:
-- Overall displayed informations;
- |- Device temperature
-  |- RAM usage
-   |- CPU usage
-    |- CPU clock speed
-     |- Memory usage
-      |- System informations
-       |- System uptime
-- WiFi Router;
- |- Enable/disable/restart
-  |- Display current IP address
-   |- Display current network usage
-- USB modems;
- |- Enable/disable/restart
-  |- Autoreconnect
-   |- Automatically detects USB modem ports
-    |- Display connection status
-     |- Display network name
-      |- Display signal strength (%/dBm/CSQ)
-       |- Display current network usage
-- CPU governor switch;
- |- Ondemand/performance/powersave
-- System power menagment;
- |- Poweroff device
-  |- Reboot device
+ | Overall displayed informations;
+ | - Device temperature
+  | - RAM usage
+   | - CPU usage
+    | - CPU clock speed
+     | - Memory usage
+      | - System informations
+       | - System uptime
+ | WiFi Router;
+ | - Enable/disable/restart
+  | - Display current IP address
+   | - Display current network usage
+ | USB modems;
+ | - Enable/disable/restart
+  | - Autoreconnect
+   | - Automatically detects USB modem ports
+    | - Display connection status
+     | - Display network name
+      | - Display signal strength (%/dBm/CSQ)
+       | - Display current network usage
+ | CPU governor switch;
+ | - Ondemand/performance/powersave
+ | System power menagment;
+ | - Poweroff device
+  | - Reboot device
  
 Control your wifi router by web server or shell commands.
 After you install this tool enter http://localhost in your local browser or 
