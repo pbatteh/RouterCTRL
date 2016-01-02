@@ -57,8 +57,8 @@ RaspberryPi is a router name and lovemesomepi is a password for it.
 By default router ip addres is 10.0.0.1, you can change it in `routerctrl` script.
 
 Instalation:
-Open terminal window, navigate to `install` file and type `./install` you will be 
-prompted to type you username password. Alternatively, just double-click on 
+Open terminal window, navigate to `install` file and type `sudo ./install` you 
+will be prompted to type you username password. Alternatively, just double-click on 
 install file, but you wont be able to see output from installation script and 
 you must have gksudo package installed. If installation is done, go to 
 http://localhost in browser or type `routerctrl start` to try out if it works. 
