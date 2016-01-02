@@ -7,14 +7,12 @@ echo "[*]Installing required packages..."
 sudo apt-get install -y gcc pm-utils hostapd dnsmasq iptables apache2 php5 libapache2-mod-php5
 sleep 2
 echo "[*]Copying index.php and jquery-2.1.4.min.js scripts to /var/www/html..."
-mv /var/www/html/index.html /var/www/html/indexBAK.html
-mv /var/www/html/index.php /var/www/html/indexBAK.php
+mv /var/www/index.html /var/www/indexBAK.html
+mv /var/www/index.php /var/www/indexBAK.php
 cp ./index.php /var/www/html/
 cp ./jquery-2.1.4.min.js /var/www/html/
 echo "[*]Compiling routerctrl.c helper program..."
-gcc -Wall -Wextra -o routerctrl routerctrl.c
-echo "\n.\n.\n.\n.\n.[*]Copying routerctrl binary to /usr/sbin..."
-sudo cp ./routerctrl /usr/sbin/
+gcc -Wall -Wextra -o /usr/sbin/routerctrl routerctrl.c
 echo "[*]Trying to make privileges on routerctrl binary..."
 sudo chown root /usr/sbin/routerctrl; 
 sudo chmod +s /usr/sbin/routerctrl
