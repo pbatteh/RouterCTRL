@@ -1,0 +1,30 @@
+#!/bin/bash
+# Check below before installing
+
+echo "Please enter your username password for sudo operations"
+sudo echo "[*]Installing..."
+echo "[*]Installing required packages..."
+sudo apt-get install -y gcc pm-utils hostapd dnsmasq iptables apache2 php5 libapache2-mod-php5
+sleep 2
+echo "[*]Copying index.php and jquery-2.1.4.min.js scripts to /var/www/html..."
+mv /var/www/html/index.html /var/www/html/indexBAK.html
+mv /var/www/html/index.php /var/www/html/indexBAK.php
+cp ./index.php /var/www/html/
+cp ./jquery-2.1.4.min.js /var/www/html/
+echo "[*]Compiling routerctrl.c helper program..."
+gcc -Wall -Wextra -o routerctrl routerctrl.c
+echo "\n.\n.\n.\n.\n.[*]Copying routerctrl binary to /usr/sbin..."
+sudo cp ./routerctrl /usr/sbin/
+echo "[*]Trying to make privileges on routerctrl binary..."
+sudo chown root /usr/sbin/routerctrl; 
+sudo chmod +s /usr/sbin/routerctrl
+echo "[*]Copying routerctrl script to /etc/init.d..."
+sudo cp ./routerctrl /etc/init.d/
+echo "[*]Copying hotspot.conf to /etc/..."
+sudo cp ./hotspot.conf /etc/
+echo "[*]Trying to make privileges on routerctrl script..."
+sudo chmod 755 /etc/init.d/routerctrl
+sudo /etc/init.d/apache2 restart
+echo "[OK] Instalation done"
+echo "[  ] Type 'routerctrl help' for info, also see script and config files."
+

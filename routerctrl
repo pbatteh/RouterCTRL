@@ -1,0 +1,547 @@
+#!/bin/sh
+
+# Installation
+# - Move this to /etc/init.d/
+# - chmod +x this
+#
+# Starting and stopping
+# - Start: `service routerctrl start` or `/etc/init.d/routerctrl start`
+# - Stop: `service routerctrl stop` or `/etc/init.d/routerctrl stop`
+
+### BEGIN INIT INFO
+# Provides:          routerCTRL
+# Required-Start:    $syslog $local_fs
+# Should-Start: 
+# Required-Stop:     
+# Should-Stop: 
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description:	
+# Description:	 
+### END INIT INFO
+
+PATH="/sbin:/usr/sbin:/bin:/usr/bin"
+DESC="Wifi Router Control Daemon"
+NAME="routerctrl"
+PIDFILE="/var/run/${NAME}.pid"
+LOGFILE="/var/run/${NAME}.log"
+SCRIPTNAME="/etc/init.d/$NAME"
+ARG1=$1
+ARG2=$2
+ARG3=$3
+
+
+#### 
+## Base configuration:
+
+	WIFIIP="10.0.0.1"			# IP adress
+	SSID="RaspberryPi"			# Network name
+	WLANPASSWORD="lovemesomepi"		# Network password
+	WIFIIPRANGESTART="10.0.0.3"		# IP range
+	WIFIIPRANGESTOP="10.0.0.20"		# IP range
+	WIFIMASK="255.255.255.0"		# IP mask
+	RESOLVCONF="/etc/resolv.conf"
+	HOSTAPDCFG="/usr/sbin/hostapd /etc/hotspot.conf"
+	# Wireless LAN interface;
+	ARG2D="wlan0"	
+	# Shared connection interface;
+	ARG3D="ppp0"	
+
+####
+## PPPD configuration and modem negotiation:
+
+	PPPDEVC="ttyUSB"	# USB port prefix (for multiple port usage)
+	PPPDIAL="*99#"		# Dial number
+	PPPUSER="wsad"		# Username
+	PPPPASS="1234"		# Username password
+	PPPPERSIST=""		# Auto reconnect, leave empty - reconnecting script is used instead
+
+# PIN code, if PIN is enabled use "AT+CPIN=1234",
+# 1234 is a pin code, if disabled use "AT".
+	PPPPIN="AT"	
+	PPPAPN="internet" 	# APN, this variable might not matter - in current setting APN is automatically given by network
+
+####
+## WiFi card configuration
+
+	WLANDRIVER="rtl871xdrv"	# Driver name for WiFi card, you might need to change this to match your Wifi card chipset
+
+# Hostapd config file generation:
+echo "interface=$ARG2D" > /etc/hotspot.conf
+echo "driver=$WLANDRIVER" >> /etc/hotspot.conf
+echo "ssid=$SSID" >> /etc/hotspot.conf
+echo "hw_mode=g" >> /etc/hotspot.conf
+echo "channel=6" >> /etc/hotspot.conf
+echo "macaddr_acl=0" >> /etc/hotspot.conf
+echo "auth_algs=1" >> /etc/hotspot.conf
+echo "ieee80211n=1" >> /etc/hotspot.conf
+echo "wpa=3" >> /etc/hotspot.conf
+echo "wpa_passphrase=$WLANPASSWORD" >> /etc/hotspot.conf
+echo "wpa_key_mgmt=WPA-PSK" >> /etc/hotspot.conf
+echo "wpa_pairwise=TKIP" >> /etc/hotspot.conf
+echo "rsn_pairwise=CCMP" >> /etc/hotspot.conf
+
+
+
+## Testing
+# Shared connection commands: Disconnect and Status:
+	#SHAREDOFF="/usr/local/Mobile_Partner/sbin/huawei-ppp-off $PPPDEV"
+	#SHAREDSTAT="/usr/local/Mobile_Partner/sbin/huawei-ppp-status $PPPDEV"
+	#$SHAREDON="pppd linkname $NAME lock crtscts modem $PPPDEV 115200 usepeerdns noauth noipdefault defaultroute connect \"chat -t15 '' '$PPPPIN' '' 'ATH0' 'OK' 'AT\^SYSCFG=14,2,3fffffff,1,1' 'OK' 'AT+CGDCONT=1,IP,$PPPAPN' 'OK' 'ATDT$PPPDIAL' 'CONNECT' ''\""
+
+####linkname HuaweiMobile telephone "$2" $AUTHENTICATION lock crtscts modem $DEVICE
+	#SHAREDON="/usr/local/Mobile_Partner/sbin/huawei-ppp-on $PPPDEV *99# abcd 1234 auth"
+	#SHAREDOFF="/usr/local/Mobile_Partner/sbin/huawei-ppp-off $PPPDEV"
+	#SHAREDSTAT="/usr/local/Mobile_Partner/sbin/huawei-ppp-status $PPPDEV"
+	#SHAREDON="pppd $PPPDEV 921600 lock crtscts modem passive novj defaultroute noipdefault usepeerdns noauth hide-password persist holdoff 10 maxfail 0 debug linkname routerctrl user \"$PPPUSER\" password \"$PPPPASS\" connect $(/usr/sbin/chat -v -t15 -f /etc/ppp/routerctrl-dil)"
+
+
+[ -x "/usr/sbin/hostapd" ] || exit 0
+. /lib/init/vars.sh
+. /lib/lsb/init-functions
+
+pppdstat() {
+if [ -f /var/run/ppp-$NAME.pid ]; then
+read -r PID </var/run/ppp-$NAME.pid
+if test $PID; then
+for linkItem in `ifconfig | grep "Link encap" | awk '{ print $1 }'`
+do
+if test -e /var/run/$linkItem.pid; then
+if test `cat /var/run/$linkItem.pid` = $PID; then
+echo "connected"
+#echo mmc0 > /sys/class/leds/led0/trigger
+exit 0
+fi
+fi
+done
+for flagItem in `ifconfig | grep "flags=" | awk '{ print $1 }'`
+do
+ITEM=$flagItem
+ITEM=${ITEM%:}
+if test -e /var/run/$ITEM.pid; then
+if test `cat /var/run/$ITEM.pid` = $PID; then
+echo "connected"
+#echo mmc0 > /sys/class/leds/led0/trigger
+fi
+fi
+done
+echo "connecting"
+#echo input > /sys/class/leds/led1/trigger
+else
+echo "not connected"
+#echo timer > /sys/class/leds/led0/trigger
+fi
+else echo "not connected"
+#echo timer > /sys/class/leds/led0/trigger
+fi
+}
+pppdstart() {
+echo -n "[*]Starting connection... \n"
+echo -n "[*]Setting up modem port... \n"
+PPPDEV=$( /usr/sbin/routerctrl getmodem port )
+if [ -f "/etc/ppp/resolv.conf" ]; then  
+rm -f "/etc/ppp/resolv.conf" 
+fi
+echo -n "[*]$PPPDEV: APN;$PPPAPN DIAL;$PPPDIAL... \n"
+#Shared connection command: Connect;
+pppd linkname $NAME lock crtscts modem $PPPDEV 115200 usepeerdns $PPPPERSIST noauth noipdefault defaultroute connect "chat -t15 '' '$PPPPIN' '' 'ATH0' 'OK' 'AT\^SYSCFG=14,2,3fffffff,1,1' 'OK' 'AT+CGDCONT=1,IP,$PPPAPN' 'OK' 'ATDT$PPPDIAL' 'CONNECT' ''"
+while [ ! -f "/etc/ppp/resolv.conf" ];
+do
+i=$(( $i + 1 ))
+if [ $i -eq 1 ]; then 
+echo -n "[*]Searching peer DNS resolv for 15 seconds...\n"; 
+fi 
+if [ $i -eq 15 ]; then 
+echo -n "[*]Could not obtain Domain Name Server. \nCheck connection (APN, dial number, etc). \n TIMEOUT: File /etc/ppp/resolv.conf wasn't created...\n" 
+return 0
+fi
+sleep 1
+done
+echo -n "[*]Found DNS in "$(($i - 1))" seconds...\n";
+if [ -f "/etc/ppp/resolv.conf" ]; then
+if [ ! -f "/etc/ppp/resolv.conf.bak" ]; then
+echo -n "[*]Buckuping local resolv.conf...\n"
+cp -f "$RESOLVCONF" "/etc/ppp/resolv.conf.bak" 
+fi
+RESOLVCONF=$(readlink -f $RESOLVCONF) 
+ls -l $RESOLVCONF "/etc/ppp/resolv.conf.bak" | awk 'NR==1{a=$5} NR==2{b=$5} END{val=(a==b)?1:0; exit(val) }'
+if [ $? -eq 1 ]; then 
+echo -n "[*]Setting up resolv.conf from peer DNS...\n"
+chattr -i /etc/resolv.conf
+cat  "/etc/ppp/resolv.conf" >> "$RESOLVCONF" 
+chattr +i /etc/resolv.conf
+fi
+fi
+#echo -n "[*]Restarting name service caching daemon (nscd)\n"
+#[ -x /etc/init.d/nscd ] && { invoke-rc.d nscd restart || true ; }
+echo -n "[*]Done\n"
+if [ -z "$ARG3" ]; then
+/usr/sbin/routerctrl autoreconnect
+/usr/sbin/routerctrl ping
+fi
+echo -n "Status: $(pppdstat)\n"
+#cat /etc/resolv.conf
+}
+pppdstop() {
+echo -n "[*]Stoping connection... \n"
+echo -n "[*]Reading PID file... \n"
+if [ -f /var/run/ppp-$NAME.pid ]; then
+read -r PID </var/run/ppp-$NAME.pid
+if test $PID; then
+echo -n "[*]Terminating $PID... \n"
+if kill $PID; then
+echo -n "[*]PPP link to $PPPDEV terminated...\n"
+#Raspberry Led's
+#echo heartbeat > /sys/class/leds/led1/trigger
+else
+status=$?
+exit $status
+echo -n "[*]Deleting PID file...\n"
+rm -f /var/run/ppp-$NAME.pid
+echo -n "[*]Done\n"
+fi
+fi
+else 
+echo -n "[*]PID file doesn't exist, killing all pppd's... \n"
+killall pppd
+#Raspberry Led's
+#echo heartbeat > /sys/class/leds/led1/trigger
+fi
+chattr -i /etc/resolv.conf
+echo -n "[*]Restoring resolv.conf and cleaning junk...\n"
+cp -f "/etc/ppp/resolv.conf.bak" "/etc/resolv.conf"
+rm -f "/etc/ppp/resolv.conf.bak"
+rm -f "/etc/ppp/resolv.conf"
+if [ -z "$ARG3" ]; then
+echo -n "[*]Killing reconnecting daemon...\n"
+/usr/sbin/routerctrl killreconnect
+echo -n "[*]Killing ping daemon...\n"
+/usr/sbin/routerctrl killping
+fi
+echo -n "Status: $(pppdstat)\n"
+}
+start() {
+if [ -z $ARG2 ]; then 
+echo -n "[*]Please define your Wifi interface and shared connection interface. \nExample: start wlan0 eth0\nFor now, using defaults: $ARG2D $ARG3D\n"
+ARG2=$ARG2D
+ARG3=$ARG3D
+#echo -n "[*]This is treated like a bootup command...\n"
+#sleep 10
+BOOTUP=1
+fi
+if [ -n $ARG2 -a -n $ARG3 ]; then
+start-stop-daemon --stop --pidfile ${PIDFILE} --retry=TERM/30/KILL/5
+echo -n "[*]Killing dnsmasq... \n"
+killall dnsmasq
+echo -n "[*]Removing $PIDFILE...\n"
+rm -f $PIDFILE
+echo -n "[*]Starting $DESC: \n"
+#echo -n "[*]Performing nmcli nm wifi off and rfkill unblock wlan...\n"
+#nmcli nm wifi off
+#rfkill unblock wlan
+#sleep 1
+echo -n "[*]Setting up $ARG2 to $WIFIIP and netmask $WIFIMASK...\n"
+ifconfig $ARG2 up $WIFIIP netmask $WIFIMASK
+#echo -n "[*]Waiting...\n"
+#sleep 2
+echo -n "[*]Checking dnsmasq...\n"
+if [ -z "$(ps -e | grep dnsmasq)" ]; then
+echo -n "[*]Starting DNS with interface $ARG2 at $WIFIIP, $WIFIIPRANGESTART/$WIFIIPRANGESTOP and server a/$NAME/$WIFIIP...\n"
+`dnsmasq --interface=$ARG2 --dhcp-range=$WIFIIPRANGESTART,$WIFIIPRANGESTOP,12h --server=/$NAME/$WIFIIP`
+else echo -n "[*]Dnsmasq already running...\n" 
+fi
+echo -n "[*]Setting up iptables...\n"
+#sleep 3
+iptables --flush
+iptables --table nat --flush
+iptables --delete-chain
+iptables --table nat --delete-chain
+iptables --table nat --append POSTROUTING --out-interface $ARG3 -j MASQUERADE
+iptables --append FORWARD --in-interface $ARG2 -j ACCEPT
+#iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+echo -n "[*]Setting up ip forwarding...\n"
+sysctl -w net.ipv4.ip_forward=1
+#sleep 1
+#sysctl -w net.ipv6.conf.all.forwarding=1
+#sleep 1
+echo -n "[*]Starting $HOSTAPDCFG config file: \nPID file ${PIDFILE}\nLog file $LOGFILE\n"
+start-stop-daemon --start --background --make-pidfile --pidfile ${PIDFILE} --exec $HOSTAPDCFG >> $LOGFILE
+echo -n "[OK] Try to connect your router.\nIf you have connection issues try restart router by service restart command\n"
+#sleep 1
+if [ -n $BOOTUP ]; then
+pppdstart
+echo "[OK] All done"
+fi
+fi
+return 0
+}
+stop() {
+echo -n "[*]Stopping hostapd deamon... \n"
+start-stop-daemon --stop --pidfile ${PIDFILE} --retry=TERM/30/KILL/5
+echo -n "[*]Killing dnsmasq... \n"
+killall dnsmasq
+echo -n "[*]Removing ${PIDFILE}...\n"
+rm -f $PIDFILE
+echo -n "[OK] Stopped\n"
+pppdstop
+return 0
+}
+
+case "$ARG1" in 
+start)
+start #comment this to set boot startup off
+/usr/sbin/routerctrl ping
+;;
+stop)
+stop
+/usr/sbin/routerctrl killping
+;;
+sharedon)
+pppdstart
+;;
+sharedoff)
+pppdstop
+;;
+sharedreset)
+pppdstop
+pppdstart
+;;
+status)
+case "$ARG2" in 
+shared)
+pppdstat
+;;
+router)
+if [ -f "$PIDFILE" ]; then
+echo "$WIFIIP"
+else
+echo "off"
+fi
+;;
+sharedtraffic)
+A=$(ifconfig "$ARG3D" | grep "RX bytes")
+B="$A"
+B=$(echo "$A" | awk -F' ' '{print $7" "$8}')
+A=$(echo "$A" | awk -F' ' '{print $3" "$4}')
+A="${A%\)}"
+A="${A#\(}"
+B="${B%\)}"
+B="${B#\(}"
+echo $A"/"$B
+;;
+sharedtraffic)
+A=$(ifconfig "$ARG3D" | grep "RX bytes")
+B="$A"
+B=$(echo "$A" | awk -F' ' '{print $7" "$8}')
+A=$(echo "$A" | awk -F' ' '{print $3" "$4}')
+A="${A%\)}"
+A="${A#\(}"
+B="${B%\)}"
+B="${B#\(}"
+echo $A"/"$B
+;;
+routertraffic)
+A=$(ifconfig "$ARG2D" | grep "RX bytes")
+B="$A"
+B=$(echo "$A" | awk -F' ' '{print $7" "$8}')
+A=$(echo "$A" | awk -F' ' '{print $3" "$4}')
+A="${A%\)}"
+A="${A#\(}"
+B="${B%\)}"
+B="${B#\(}"
+echo $A"/"$B
+;;
+
+esac
+;;
+restart|force-reload)
+stop
+sleep 1
+start
+;;
+powersave)
+echo -n "[*]Turning PC into $ARG1 mode... \n"
+echo "powersave" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+pm-powersave true
+;;
+performance)
+echo -n "[*]Turning PC into $ARG1 mode... \n"
+echo "performance" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+pm-powersave false
+;;
+ondemand)
+echo -n "[*]Turning PC into $ARG1 mode... \n"
+echo "ondemand" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+pm-powersave true
+;;
+getsystem)
+case "$ARG2" in
+reboot)
+reboot
+;;
+poweroff)
+poweroff
+;;
+ram)
+vcgencmd get_mem arm | awk -F'=' '{print $2}'
+;;
+ramusage)
+A=`free -h | awk -F' ' 'NR==2 {x=$2} NR==3 {print $3"/"x}'`
+#B=`free -h | awk -F' ' 'NR==2 {print $3}'`
+echo "$A"
+;;
+cpuusage)
+idle=`vmstat 3 2 | tail -n1 | sed "s/\ \ */\ /g" | cut -d' ' -f 16`
+cpu0=$(( 100 - idle ))
+echo "$cpu0"
+;;
+uptime)
+A=`uptime`
+if echo "$A" | grep -q "day"; then
+B=`echo "$A" | awk -F',' '{print $1}' | awk -F' ' '{print $3}'`
+C=`echo "$A" | awk -F',' '{print $2}' | awk -F' ' '{print $1}' | awk -F':' '{print $1" "$2}'`
+R="$B $C"
+else
+R=`echo "$A" | awk -F',' '{print $1}' | awk -F' ' '{print $3}' | awk -F':' '{print $1" "$2}'`
+fi
+echo "$R"
+;;
+gpu)
+vcgencmd get_mem gpu | awk -F'=' '{ print $2 }'
+;;
+cpu)
+cat /sys/devices/system/cpu/cpu*/cpufreq/cpuinfo_cur_freq 
+;;
+storage)
+echo $(df -h | awk -F' ' 'NR==2 {print $2}')
+;;
+freestorage)
+echo $(df -h | awk -F' ' 'NR==2 {print $4}')
+;;
+esac
+;;
+led)
+case "$ARG2" in
+trigger)
+echo $ARG3 > /sys/class/leds/led1/trigger
+;;
+esac
+;;
+getmodem)
+case "$ARG2" in
+port)
+A=$( { ls /dev/ | grep $PPPDEVC; } 2>&1; )
+for i in `seq 0 $( echo "$A" | wc -l )`
+do
+B=$( echo "$A" | awk -v i="$i" 'NR==i { print $1 }' )
+B="/dev/$B"
+{ chat -VS -t 5 '' 'AT' 'OK' '' > $B < $B; } > /dev/null 2>&1
+if [ $? -eq "0" ]; then
+echo "$B"
+return 0
+fi
+done
+;;
+operator)
+PPPDEVC=$( /usr/sbin/routerctrl getmodem port )
+{ chat -VS -t 5 '' 'AT+COPS=3,0' 'OK' '' > $PPPDEVC < $PPPDEVC; } > /dev/null 2>&1
+A=$( { chat -VS -t 5 '' 'AT+COPS?' 'OK' '' > $PPPDEVC < $PPPDEVC; } 2>&1;)
+B=$(echo "$A" | grep "+COPS:" | awk -F' ' '{print $2}' | awk -F',' '{print $3}' | sed 's/^"\(.*\).$/\1/')
+echo "$B"
+;;
+signal)
+PPPDEVC=$( /usr/sbin/routerctrl getmodem port )
+A=$( { chat -VS -t 5 '' 'AT+CSQ' 'OK' '' > $PPPDEVC < $PPPDEVC; } 2>&1;)
+B=$(echo "$A" | grep "+CSQ:" | awk -F' ' '{print $2}' | awk -F',' '{print $1}')
+if [ "$ARG3" = "rssi" ]; then echo "$B"; return 0; fi
+C=$((B*2-113))
+if [ "$ARG3" = "dbm" ]; then echo "$C"; return 0; fi
+D=-65
+E=-95
+F=$((100-80*(D-C)/(D-E) ))
+if [ "$ARG3" = "full" ]; then echo $F"% ("$C" dBm, "$B" CSQ)"; return 0; fi
+echo $F"%"
+;;
+esac
+;;
+killping)
+if [ -f /tmp/ping.sh ]; then
+echo -n "[*]Killing... \n"
+killall ping.sh
+rm -f /tmp/ping.sh
+echo -n "[*]Done... \n"
+fi
+;;
+ping)
+echo "#!/bin/sh" >> /tmp/ping.sh
+echo "A=2; B=2" >> /tmp/ping.sh 
+echo "while [ true ];" >> /tmp/ping.sh 
+echo "do" >> /tmp/ping.sh 
+#echo 'C=`wget --tries=2 --timeout=5 --spider http://google.com 2>&1`' >> /tmp/ping.sh
+echo 'C=`echo -e "GET http://google.com HTTP/1.0\\n\\n" | nc google.com 80 2>&1`' >> /tmp/ping.sh
+echo 'if [ "$?" -eq "0" ]; then' >> /tmp/ping.sh
+echo 'if [ $A -eq 0 -o $A -gt 1 ]; then ' >> /tmp/ping.sh 
+echo 'if echo "$C" | grep "bdife"; then' >> /tmp/ping.sh
+echo 'echo timer > /sys/class/leds/led1/trigger' >> /tmp/ping.sh
+echo "A=0" >> /tmp/ping.sh
+#echo "echo '[*]Internet is up, but aero2 captcha detected'" >> /tmp/ping.sh
+echo "else" >> /tmp/ping.sh
+echo "echo none > /sys/class/leds/led1/trigger" >> /tmp/ping.sh
+#echo "echo '[*]Internet is up'" >> /tmp/ping.sh
+echo "A=1" >> /tmp/ping.sh
+echo 'fi' >> /tmp/ping.sh 
+echo "fi" >> /tmp/ping.sh  
+echo "else" >> /tmp/ping.sh 
+echo 'if [ $A -eq 1 -o $A -gt 1 ]; then ' >> /tmp/ping.sh 
+echo "echo timer > /sys/class/leds/led1/trigger" >> /tmp/ping.sh 
+#echo "echo '[*]Internet is down.'" >> /tmp/ping.sh 
+echo "fi" >> /tmp/ping.sh 
+echo "A=0" >> /tmp/ping.sh 
+echo "fi" >> /tmp/ping.sh
+echo "sleep 10" >> /tmp/ping.sh 
+echo "done" >> /tmp/ping.sh 
+chmod +x /tmp/ping.sh
+/tmp/ping.sh > /dev/null 2>&1 &
+;;
+killreconnect)
+if [ -f /tmp/reconnect.sh ]; then
+echo -n "[*]Killing... \n"
+killall reconnect.sh
+rm -f /tmp/reconnect.sh
+echo -n "[*]Done... \n"
+fi
+;;
+autoreconnect)
+if [ -f "/tmp/reconnect.sh" ]; then 
+echo "[*]Reconecting deamon is already active"
+return 0
+fi
+echo "[*]Reconnecting script enabled."
+echo '#!/bin/sh' >> /tmp/reconnect.sh
+#echo 'echo "[*]Reconnecting script enabled."' >> /tmp/reconnect.sh
+echo 'while [ true ];' >> /tmp/reconnect.sh
+echo 'do' >> /tmp/reconnect.sh
+echo 'sleep 10' >> /tmp/reconnect.sh
+echo 'A=$(/usr/sbin/routerctrl status shared)' >> /tmp/reconnect.sh
+echo 'case "$A" in' >> /tmp/reconnect.sh
+echo 'connected)' >> /tmp/reconnect.sh
+echo ';;' >> /tmp/reconnect.sh
+echo '"not connected")' >> /tmp/reconnect.sh
+#echo 'echo "[*]Connection dropped down. Restarting..."' >> /tmp/reconnect.sh
+echo 'python ~/buzz.py' >> /tmp/reconnect.sh
+echo '/usr/sbin/routerctrl killping' >> /tmp/reconnect.sh
+echo '/usr/sbin/routerctrl sharedon dontkill' >> /tmp/reconnect.sh
+echo ';;' >> /tmp/reconnect.sh
+echo 'esac' >> /tmp/reconnect.sh
+echo 'done' >> /tmp/reconnect.sh
+chmod +x /tmp/reconnect.sh
+/tmp/reconnect.sh > /dev/null 2>&1 &
+;;
+    *)
+        N=/etc/init.d/$NAME
+        echo -n "[*]Usage: $N {start|stop|restart|sharedon|sharedoff|sharedreset|sharedstatus|powersave|performance|ondemand}\n\n  Example: routerctrl start wlan0 ppp0 \n" >&2
+        exit 1
+        ;;
+esac
+ 
+exit 0
