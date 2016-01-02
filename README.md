@@ -9,7 +9,7 @@ Feel free to expand this little tool by tweaking with bash, php and simple C cod
 ################################################################################
 
 Features:
- | Overall displayed informations;
+ - Overall displayed informations;
  | - Device temperature
   | - RAM usage
    | - CPU usage
@@ -17,11 +17,11 @@ Features:
      | - Memory usage
       | - System informations
        | - System uptime
- | WiFi Router;
+ - WiFi Router;
  | - Enable/disable/restart
   | - Display current IP address
    | - Display current network usage
- | USB modems;
+ - USB modems;
  | - Enable/disable/restart
   | - Autoreconnect
    | - Automatically detects USB modem ports
@@ -29,9 +29,9 @@ Features:
      | - Display network name
       | - Display signal strength (%/dBm/CSQ)
        | - Display current network usage
- | CPU governor switch;
+ - CPU governor switch;
  | - Ondemand/performance/powersave
- | System power menagment;
+ - System power menagment;
  | - Poweroff device
   | - Reboot device
  
