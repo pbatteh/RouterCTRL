@@ -3,7 +3,7 @@
 ################################################################################
 
 ################################################################################
-##            ENGLISH TRANSLATION COMING SOON                                 ##
+#             ENGLISH TRANSLATION COMING SOON                                  #
 # This tool is in Polish language only, but soon will be translated to English #
 ################################################################################
 
